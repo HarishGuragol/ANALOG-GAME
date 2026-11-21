@@ -5,10 +5,10 @@ namespace Analog.Core
     public class SimpleRainSystem : MonoBehaviour
     {
         [Header("Rain Settings")]
-        [SerializeField] private int maxParticles = 3000;
+        [SerializeField] private int maxParticles = 2000;
         [SerializeField] private float rainAreaSize = 25.0f;
-        [SerializeField] private float rainHeight = 12.0f;
-        [SerializeField] private float fallSpeed = 18.0f;
+        [SerializeField] private float rainHeight = 10.0f;
+        [SerializeField] private float fallSpeed = 16.0f;
 
         private ParticleSystem rainParticleSystem;
         private Transform rainEmitterTransform;
@@ -21,7 +21,6 @@ namespace Analog.Core
         private void SetupRain()
         {
             var pObj = new GameObject("RainEmitter");
-            // Do NOT parent to LevelBuilder so the building never moves!
             rainEmitterTransform = pObj.transform;
             rainEmitterTransform.position = new Vector3(0, rainHeight, 0);
             rainEmitterTransform.rotation = Quaternion.Euler(90f, 0f, 0f);
@@ -30,9 +29,9 @@ namespace Analog.Core
             var main = rainParticleSystem.main;
             main.maxParticles = maxParticles;
             main.startSpeed = fallSpeed;
-            main.startLifetime = 0.8f;
-            main.startSize = 0.05f;
-            main.startColor = new Color(0.7f, 0.8f, 0.9f, 0.45f);
+            main.startLifetime = 0.7f;
+            main.startSize = 0.04f;
+            main.startColor = new Color(0.7f, 0.85f, 1f, 0.5f);
             main.simulationSpace = ParticleSystemSimulationSpace.World;
 
             var shape = rainParticleSystem.shape;
@@ -40,17 +39,20 @@ namespace Analog.Core
             shape.scale = new Vector3(rainAreaSize, rainAreaSize, 1.0f);
 
             var emission = rainParticleSystem.emission;
-            emission.rateOverTime = 1200f;
+            emission.rateOverTime = 800f;
 
             var renderer = pObj.GetComponent<ParticleSystemRenderer>();
+            // Assign default particle material so it is never pink/missing!
+            Material rainMat = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit"));
+            rainMat.color = new Color(0.7f, 0.85f, 1.0f, 0.4f);
+            renderer.material = rainMat;
             renderer.renderMode = ParticleSystemRenderMode.Stretch;
-            renderer.velocityScale = 0.08f;
-            renderer.lengthScale = 1.2f;
+            renderer.velocityScale = 0.05f;
+            renderer.lengthScale = 1.0f;
         }
 
         private void LateUpdate()
         {
-            // Only move the floating rain cloud above the player, NOT the building!
             if (rainEmitterTransform != null)
             {
                 var player = FindFirstObjectByType<PlayerController>();

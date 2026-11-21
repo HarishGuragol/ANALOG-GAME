@@ -11,22 +11,22 @@ namespace Analog.Core
         [SerializeField] private Light[] linkedLights;
         [SerializeField] private Door linkedMagneticDoor;
 
-        [Header("Visual Indicator (Amber LED on Box)")]
         private Material boxMaterial;
 
         private void Start()
         {
-            // Auto-find Directional Light if not linked manually
-            if (linkedLights == null || linkedLights.Length == 0 || linkedLights[0] == null)
+            // Auto-find door if not manually dragged into inspector
+            if (linkedMagneticDoor == null)
             {
-                var sun = FindFirstObjectByType<Light>();
-                if (sun != null)
-                {
-                    linkedLights = new Light[] { sun };
-                }
+                linkedMagneticDoor = FindFirstObjectByType<Door>();
             }
 
-            // Create a custom material on the box so it visibly turns from glowing amber to dead grey
+            // Auto-find all directional & room lights
+            if (linkedLights == null || linkedLights.Length == 0 || linkedLights[0] == null)
+            {
+                linkedLights = FindObjectsByType<Light>(FindObjectsSortMode.None);
+            }
+
             var renderer = GetComponent<MeshRenderer>();
             if (renderer != null)
             {
@@ -44,40 +44,60 @@ namespace Analog.Core
         {
             powerIsOn = !powerIsOn;
 
-            // 1. Physically turn off the sun/lights
+            // 1. Physically turn off ALL office lights and ceiling lamps!
             if (linkedLights != null)
             {
                 foreach (var light in linkedLights)
                 {
-                    if (light != null)
+                    // Don't turn off guard flashlight or player light
+                    if (light != null && !light.name.Contains("Flashlight"))
                     {
                         light.enabled = powerIsOn;
                     }
                 }
             }
 
-            // 2. Dim camera exposure to make the whole screen pitch dark
-            if (Camera.main != null)
+            // 2. Kill skybox ambient light into pitch black noir
+            if (!powerIsOn)
             {
-                Camera.main.backgroundColor = powerIsOn ? new Color(0.19f, 0.3f, 0.47f) : Color.black;
-                Camera.main.clearFlags = powerIsOn ? CameraClearFlags.Skybox : CameraClearFlags.SolidColor;
+                RenderSettings.ambientLight = new Color(0.01f, 0.01f, 0.02f);
+                RenderSettings.ambientSkyColor = Color.black;
+                RenderSettings.ambientEquatorColor = Color.black;
+                RenderSettings.ambientGroundColor = Color.black;
+                if (Camera.main != null)
+                {
+                    Camera.main.clearFlags = CameraClearFlags.SolidColor;
+                    Camera.main.backgroundColor = new Color(0.02f, 0.02f, 0.03f);
+                }
+            }
+            else
+            {
+                if (Camera.main != null)
+                {
+                    Camera.main.clearFlags = CameraClearFlags.Skybox;
+                }
             }
 
-            // 3. Change box visual
+            // 3. Turn box from glowing amber -> dead dark grey
             UpdateBoxVisual();
 
-            // 4. Unlock or lock the door
+            // 4. UNLOCK the magnetic door!
+            if (linkedMagneticDoor == null)
+            {
+                linkedMagneticDoor = FindFirstObjectByType<Door>();
+            }
+
             if (linkedMagneticDoor != null)
             {
                 if (!powerIsOn)
                 {
                     linkedMagneticDoor.Unlock();
-                    Debug.Log("[Breaker] Power severed. Magnetic lock disabled — Door is now accessible!");
+                    Debug.Log("[Breaker] Circuit cut! Magnetic coil lock severed. Door is UNLOCKED!");
                 }
                 else
                 {
                     linkedMagneticDoor.Lock();
-                    Debug.Log("[Breaker] Power restored. Magnetic lock re-engaged.");
+                    Debug.Log("[Breaker] Power restored. Door locked.");
                 }
             }
         }
@@ -86,7 +106,7 @@ namespace Analog.Core
         {
             if (boxMaterial != null)
             {
-                boxMaterial.color = powerIsOn ? new Color(1.0f, 0.65f, 0.1f) : new Color(0.15f, 0.15f, 0.15f);
+                boxMaterial.color = powerIsOn ? new Color(1.0f, 0.68f, 0.1f) : new Color(0.15f, 0.15f, 0.15f);
             }
         }
     }

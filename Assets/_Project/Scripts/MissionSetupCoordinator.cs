@@ -17,7 +17,7 @@ namespace Analog.Core
 
         public void EnforceLayout()
         {
-            // 1. LevelBuilder (Center anchor)
+            // 1. LevelBuilder
             var lb = FindFirstObjectByType<LevelBuilder>();
             if (lb != null && lb.transform != null)
             {
@@ -26,7 +26,7 @@ namespace Analog.Core
                 lb.transform.localScale = Vector3.one;
             }
 
-            // 2. Door - Placed in the partition wall opening
+            // 2. Door
             var door = GameObject.Find("Door");
             if (door != null)
             {
@@ -35,7 +35,7 @@ namespace Analog.Core
                 door.transform.localScale = new Vector3(2.0f, 2.8f, 0.15f);
             }
 
-            // 3. Breaker Box - Mounted flat on the wall near the door
+            // 3. Breaker Box
             var breaker = GameObject.Find("BreakerBox");
             if (breaker != null)
             {
@@ -44,7 +44,7 @@ namespace Analog.Core
                 breaker.transform.localScale = new Vector3(0.6f, 0.8f, 0.25f);
             }
 
-            // 4. Terminal Desk - Placed right in the center of the server archive room so it's easy to reach!
+            // 4. Terminal Desk - In server room
             var terminal = GameObject.Find("TerminalDesk");
             if (terminal != null)
             {
@@ -53,7 +53,7 @@ namespace Analog.Core
                 terminal.transform.localScale = new Vector3(1.6f, 1.1f, 0.9f);
             }
 
-            // 5. Patrol Guard - Pacing between server racks
+            // 5. Patrol Guard
             var guard = GameObject.Find("Guard");
             if (guard != null)
             {
@@ -61,7 +61,15 @@ namespace Analog.Core
                 guard.transform.rotation = Quaternion.Euler(0, 180f, 0);
             }
 
-            // 6. Ground Floor - Sized to fill room
+            // 6. Player Kael
+            var player = GameObject.Find("Player");
+            if (player != null)
+            {
+                player.transform.position = new Vector3(0.5f, 1.0f, -4.0f);
+                player.transform.rotation = Quaternion.identity;
+            }
+
+            // 7. Ground
             var ground = GameObject.Find("Ground");
             if (ground != null)
             {
@@ -69,15 +77,17 @@ namespace Analog.Core
                 ground.transform.localScale = new Vector3(2.5f, 1.0f, 3.0f);
             }
 
-            // 7. Auto-link Camera to Player if missing
+            // 8. Attach SimpleCameraFollow to Main Camera
             var cam = Camera.main;
             if (cam != null)
             {
-                var tpc = cam.GetComponent<ThirdPersonCamera>();
-                var player = GameObject.Find("Player");
-                if (tpc != null && player != null)
+                var oldCam = cam.GetComponent<ThirdPersonCamera>();
+                if (oldCam != null) DestroyImmediate(oldCam);
+
+                var newCam = cam.GetComponent<SimpleCameraFollow>();
+                if (newCam == null)
                 {
-                    tpc.SetTarget(player.transform);
+                    cam.gameObject.AddComponent<SimpleCameraFollow>();
                 }
             }
         }
