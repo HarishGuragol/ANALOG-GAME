@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Analog.Core
 {
@@ -20,6 +21,18 @@ namespace Analog.Core
         [SerializeField] private Door targetDoorToUnlock;
 
         private bool isOpen = false;
+
+        private void Update()
+        {
+            if (!isOpen || Keyboard.current == null) return;
+
+            // SPACE while the terminal is open purges Kael's Drift file
+            if (Keyboard.current.spaceKey.wasPressedThisFrame && MissionManager.Instance != null)
+            {
+                isOpen = false;
+                MissionManager.Instance.TriggerPurge();
+            }
+        }
 
         public string GetInteractionPrompt()
         {
@@ -81,7 +94,7 @@ namespace Analog.Core
             footerStyle.normal.textColor = new Color(0.5f, 0.6f, 0.65f);
             footerStyle.alignment = TextAnchor.MiddleCenter;
 
-            GUI.Label(new Rect(startX, startY + boxHeight - 40, boxWidth, 30), "Press [E] to disconnect", footerStyle);
+            GUI.Label(new Rect(startX, startY + boxHeight - 40, boxWidth, 30), "[SPACE] Purge Drift File #992      [E] Disconnect", footerStyle);
         }
     }
 }
