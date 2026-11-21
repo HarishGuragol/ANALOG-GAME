@@ -47,7 +47,7 @@ namespace Analog.Core
             // 1. Physically turn off ALL office lights and ceiling lamps!
             if (linkedLights != null)
             {
-                foreach (var light in linkedLights)
+                foreach (var light in FindObjectsByType<Light>(FindObjectsSortMode.None))
                 {
                     // Don't turn off guard flashlight or player light
                     if (light != null && !light.name.Contains("Flashlight"))

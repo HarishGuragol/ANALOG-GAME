@@ -3,6 +3,10 @@ using UnityEngine.InputSystem;
 
 namespace Analog.Core
 {
+    // Third-person chase camera.
+    //  - A / D steer: the camera (and Kael) turn left / right
+    //  - Mouse also orbits and tilts the view
+    //  - Walls never get between the camera and Kael
     public class SimpleCameraFollow : MonoBehaviour
     {
         [Header("Target to Follow")]
@@ -12,18 +16,16 @@ namespace Analog.Core
         [SerializeField] private Vector3 offset = new Vector3(0f, 2.2f, -3.8f);
         [SerializeField] private float smoothSpeed = 10f;
 
-        [Header("Mouse Orbit")]
+        [Header("Turning")]
         [SerializeField] private float mouseSensitivity = 0.15f;
-
-        [Header("Auto Follow (camera swings behind Kael when he turns)")]
-        [SerializeField] private float autoFollowSpeed = 1.6f;
+        [SerializeField] private float steerSpeed = 110f;   // degrees per second for A / D
         [SerializeField] private float collisionRadius = 0.25f;
 
         private float yaw = 0f;
         private float pitch = 15f;
-        private Vector3 lastTargetPos;
-        private float mouseIdleTimer = 1f;
         private bool initialized = false;
+
+        public float Yaw => yaw;
 
         private void Start()
         {
@@ -65,37 +67,25 @@ namespace Analog.Core
             if (!initialized)
             {
                 yaw = target.eulerAngles.y;
-                lastTargetPos = target.position;
                 initialized = true;
             }
 
-            // Mouse orbit
-            mouseIdleTimer += dt;
+            // A / D steer the view
+            if (keyboard != null)
+            {
+                float steer = 0f;
+                if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) steer += 1f;
+                if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) steer -= 1f;
+                yaw += steer * steerSpeed * dt;
+            }
+
+            // Mouse look
             if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
             {
                 Vector2 delta = mouse.delta.ReadValue();
-                if (delta.sqrMagnitude > 0.25f) mouseIdleTimer = 0f;
                 yaw += delta.x * mouseSensitivity;
                 pitch -= delta.y * mouseSensitivity;
                 pitch = Mathf.Clamp(pitch, -15f, 60f);
-            }
-
-            // Auto follow: if Kael is running away from the camera and the mouse is idle,
-            // swing the camera round to sit behind him as he turns
-            if (dt > 0f)
-            {
-                Vector3 vel = (target.position - lastTargetPos) / dt;
-                vel.y = 0f;
-                lastTargetPos = target.position;
-
-                if (mouseIdleTimer > 0.4f && vel.magnitude > 0.5f)
-                {
-                    Vector3 camForward = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
-                    if (Vector3.Dot(vel.normalized, camForward) > 0.2f)
-                    {
-                        yaw = Mathf.LerpAngle(yaw, target.eulerAngles.y, autoFollowSpeed * dt);
-                    }
-                }
             }
 
             // Position behind Kael's shoulder
@@ -103,7 +93,7 @@ namespace Analog.Core
             Vector3 pivot = target.position + Vector3.up * 1.4f;
             Vector3 desired = pivot + rotation * new Vector3(offset.x, 0f, offset.z);
 
-            // Don't let walls get between the camera and Kael
+            // Pull the camera in if a wall is in the way
             Vector3 toCam = desired - pivot;
             float dist = toCam.magnitude;
             if (dist > 0.01f &&

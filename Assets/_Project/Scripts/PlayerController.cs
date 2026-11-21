@@ -123,16 +123,21 @@ namespace Analog.Core
             if (isCrouching) targetSpeed = crouchSpeed;
             else if (keyboard.leftShiftKey.isPressed) targetSpeed = sprintSpeed;
 
-            // Work out the world-space direction relative to the camera
+            // W / S walk along the camera's forward direction.
+            // A / D steer the camera (see SimpleCameraFollow), and Kael turns with it.
+            float cameraYaw = cameraTransform != null ? cameraTransform.eulerAngles.y : 0f;
             Vector3 desiredVelocity = Vector3.zero;
-            if (input.magnitude >= 0.1f)
-            {
-                float cameraYaw = cameraTransform != null ? cameraTransform.eulerAngles.y : 0f;
-                Vector3 moveDir = Quaternion.Euler(0f, cameraYaw, 0f) * input;
-                desiredVelocity = moveDir * targetSpeed;
 
-                // Kael turns to face where he is going (smoothly)
-                Quaternion lookRot = Quaternion.LookRotation(moveDir, Vector3.up);
+            if (Mathf.Abs(vertical) > 0.1f)
+            {
+                Vector3 moveDir = Quaternion.Euler(0f, cameraYaw, 0f) * new Vector3(0f, 0f, Mathf.Sign(vertical));
+                desiredVelocity = moveDir * targetSpeed;
+            }
+
+            // Kael always turns to face where the camera is pointing while a movement key is held
+            if (input.sqrMagnitude > 0.01f)
+            {
+                Quaternion lookRot = Quaternion.Euler(0f, cameraYaw, 0f);
                 transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, 1f - Mathf.Exp(-turnSpeed * Time.deltaTime));
             }
 

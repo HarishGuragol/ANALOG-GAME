@@ -49,6 +49,8 @@ namespace Analog.Core
             renderer.renderMode = ParticleSystemRenderMode.Stretch;
             renderer.velocityScale = 0.05f;
             renderer.lengthScale = 1.0f;
+            renderer.minParticleSize = 0f;
+            renderer.maxParticleSize = 0.02f; // stops raindrops near the camera turning into fat bars
         }
 
         private void LateUpdate()
