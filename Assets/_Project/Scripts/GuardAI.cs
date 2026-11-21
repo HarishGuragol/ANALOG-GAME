@@ -8,19 +8,26 @@ namespace Analog.Core
         [SerializeField] private float viewDistance = 10.0f;
         [SerializeField] private float viewAngle = 75.0f;
 
-        [Header("Patrol & Investigation")]
+        [Header("Patrol, Chase & Combat")]
         [SerializeField] private float patrolSpeed = 1.9f;
         [SerializeField] private float investigateSpeed = 2.2f;
         [SerializeField] private float investigateDuration = 4.5f;
+        [SerializeField] private float maxHealth = 100f;
+        [SerializeField] private float chaseSpeed = 3.4f;
+        [SerializeField] private float attackRange = 1.85f;
+        [SerializeField] private float attackDamage = 20f;
+        [SerializeField] private float attackCooldown = 1.2f;
         [SerializeField] private bool carriesVaultKeycard = false;
 
         [Header("Vision Cone Visual")]
         [SerializeField] private Light flashlight;
 
         public bool IsKnockedOut { get; private set; }
+        public float CurrentHealth { get; private set; }
 
         private Transform player;
         private PlayerController playerController;
+        private PlayerCombat playerCombat;
         private bool hasSpottedPlayer = false;
 
         private Vector3 homePosition;
@@ -33,6 +40,16 @@ namespace Analog.Core
         private bool returningHome = false;
         private Vector3 investigateTarget;
         private float investigateTimer = 0f;
+
+        private Vector3 lastSeenPlayerPos;
+        private float loseSightTimer = 0f;
+        private float attackTimer = 0f;
+        private float hitFlashTimer = 0f;
+
+        private MeshRenderer guardRenderer;
+        private Color baseBodyColor = Color.gray;
+        private AudioSource audioSource;
+        private AudioClip batonClip;
 
         private float toastTimer = 0f;
         private string toastMessage = "";
@@ -55,8 +72,22 @@ namespace Analog.Core
 
         private void Start()
         {
+            CurrentHealth = maxHealth;
             homePosition = transform.position;
             homeYaw = transform.eulerAngles.y;
+
+            guardRenderer = GetComponent<MeshRenderer>();
+            if (guardRenderer != null && guardRenderer.material != null)
+            {
+                baseBodyColor = guardRenderer.material.color;
+            }
+
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+            audioSource.spatialBlend = 0.7f;
+            batonClip = BuildBatonClip();
+
             FindPlayer();
             SetupFlashlight();
         }
@@ -73,6 +104,7 @@ namespace Analog.Core
             {
                 player = pObj.transform;
                 playerController = pObj.GetComponent<PlayerController>();
+                playerCombat = pObj.GetComponent<PlayerCombat>();
             }
         }
 
@@ -115,7 +147,19 @@ namespace Analog.Core
         private void Update()
         {
             if (toastTimer > 0f) toastTimer -= Time.deltaTime;
+
+            if (hitFlashTimer > 0f)
+            {
+                hitFlashTimer -= Time.deltaTime;
+                if (hitFlashTimer <= 0f && guardRenderer != null)
+                {
+                    guardRenderer.material.color = baseBodyColor;
+                }
+            }
+
             if (IsKnockedOut) return;
+
+            if (attackTimer > 0f) attackTimer -= Time.deltaTime;
 
             if (player == null)
             {
@@ -123,7 +167,13 @@ namespace Analog.Core
                 if (player == null) return;
             }
 
-            if (isInvestigating)
+            CheckDetection();
+
+            if (hasSpottedPlayer)
+            {
+                UpdateChaseAndAttack();
+            }
+            else if (isInvestigating)
             {
                 UpdateInvestigation();
             }
@@ -140,8 +190,56 @@ namespace Analog.Core
                 float swivelAngle = Mathf.PingPong(Time.time * 30f, 80f) - 40f;
                 transform.rotation = Quaternion.Euler(0, homeYaw + swivelAngle, 0);
             }
+        }
 
-            CheckDetection();
+        private void UpdateChaseAndAttack()
+        {
+            if (playerCombat != null && playerCombat.IsDead)
+            {
+                hasSpottedPlayer = false;
+                returningHome = true;
+                UpdateFlashlightColor();
+                return;
+            }
+
+            Vector3 chaseGoal = (playerController != null && playerController.IsHiding)
+                ? lastSeenPlayerPos
+                : player.position;
+            Vector3 toGoal = chaseGoal - transform.position;
+            toGoal.y = 0f;
+            float dist = toGoal.magnitude;
+
+            if (dist > 0.05f)
+            {
+                Vector3 dir = toGoal.normalized;
+                Quaternion lookRot = Quaternion.LookRotation(dir, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * 8f);
+
+                if (dist > attackRange * 0.78f &&
+                    !Physics.Raycast(transform.position + Vector3.up * 0.5f, dir, 0.85f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    transform.position += dir * chaseSpeed * Time.deltaTime;
+                }
+            }
+
+            // Baton strike if close enough and player is not tucked inside a locker
+            if (playerController == null || !playerController.IsHiding)
+            {
+                float playerDist = Vector3.Distance(
+                    new Vector3(transform.position.x, 0f, transform.position.z),
+                    new Vector3(player.position.x, 0f, player.position.z));
+
+                if (playerDist <= attackRange && attackTimer <= 0f)
+                {
+                    attackTimer = attackCooldown;
+                    if (playerCombat != null) playerCombat.TakeDamage(attackDamage);
+                    if (audioSource != null && batonClip != null)
+                    {
+                        audioSource.pitch = Random.Range(0.92f, 1.08f);
+                        audioSource.PlayOneShot(batonClip, 0.6f);
+                    }
+                }
+            }
         }
 
         private void UpdatePatrol()
@@ -235,48 +333,109 @@ namespace Analog.Core
 
         private void CheckDetection()
         {
-            if (playerController != null && playerController.IsHiding)
+            bool canSee = false;
+
+            if (playerController == null || !playerController.IsHiding)
             {
-                TriggerAlert(false);
-                return;
-            }
+                Vector3 guardEyePos = transform.position + Vector3.up * 0.8f;
+                Vector3 playerTargetPos = player.position + Vector3.up * 0.8f;
+                Vector3 dirToPlayer = playerTargetPos - guardEyePos;
+                float dist = dirToPlayer.magnitude;
 
-            Vector3 guardEyePos = transform.position + Vector3.up * 0.8f;
-            Vector3 playerTargetPos = player.position + Vector3.up * 0.8f;
-            Vector3 dirToPlayer = playerTargetPos - guardEyePos;
-            float dist = dirToPlayer.magnitude;
+                float maxDetectDist = playerController != null && playerController.IsCrouching ? viewDistance * 0.5f : viewDistance;
 
-            float maxDetectDist = playerController != null && playerController.IsCrouching ? viewDistance * 0.5f : viewDistance;
-
-            if (dist <= maxDetectDist)
-            {
-                float angle = Vector3.Angle(transform.forward, dirToPlayer);
-                if (angle <= viewAngle / 2f)
+                if (dist <= maxDetectDist && Vector3.Angle(transform.forward, dirToPlayer) <= viewAngle / 2f)
                 {
                     Ray ray = new Ray(guardEyePos + transform.forward * 0.6f, dirToPlayer.normalized);
-                    if (Physics.Raycast(ray, out RaycastHit hit, dist))
+                    if (!Physics.Raycast(ray, out RaycastHit hit, dist) ||
+                        hit.transform == player || hit.transform.IsChildOf(player))
                     {
-                        if (hit.transform == player || hit.transform.IsChildOf(player))
-                        {
-                            TriggerAlert(true);
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        TriggerAlert(true);
-                        return;
+                        canSee = true;
                     }
                 }
             }
 
-            TriggerAlert(false);
+            if (canSee)
+            {
+                hasSpottedPlayer = true;
+                isInvestigating = false;
+                returningHome = false;
+                loseSightTimer = 3.5f;
+                lastSeenPlayerPos = player.position;
+                UpdateFlashlightColor();
+            }
+            else if (hasSpottedPlayer)
+            {
+                loseSightTimer -= Time.deltaTime;
+                if (loseSightTimer <= 0f)
+                {
+                    hasSpottedPlayer = false;
+                    isInvestigating = true;
+                    investigateTarget = new Vector3(lastSeenPlayerPos.x, transform.position.y, lastSeenPlayerPos.z);
+                    investigateTimer = investigateDuration;
+                    UpdateFlashlightColor();
+                }
+            }
         }
 
-        private void TriggerAlert(bool spotted)
+        public void TakeDamage(float amount, Vector3 knockbackDir)
         {
-            hasSpottedPlayer = spotted;
+            if (IsKnockedOut) return;
+
+            CurrentHealth = Mathf.Max(0f, CurrentHealth - amount);
+            hitFlashTimer = 0.2f;
+            if (guardRenderer != null)
+            {
+                guardRenderer.material.color = new Color(0.95f, 0.2f, 0.2f);
+            }
+
+            Vector3 flatPush = new Vector3(knockbackDir.x, 0f, knockbackDir.z).normalized;
+            if (flatPush.sqrMagnitude > 0.01f &&
+                !Physics.Raycast(transform.position + Vector3.up * 0.5f, flatPush, 0.7f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                transform.position += flatPush * 0.45f;
+            }
+
+            if (CurrentHealth <= 0f)
+            {
+                KnockOut(false);
+                return;
+            }
+
+            // Alert immediately so the guard fights back
+            hasSpottedPlayer = true;
+            isInvestigating = false;
+            returningHome = false;
+            loseSightTimer = 4.0f;
+            if (player != null) lastSeenPlayerPos = player.position;
             UpdateFlashlightColor();
+        }
+
+        private void KnockOut(bool silent)
+        {
+            IsKnockedOut = true;
+            hasSpottedPlayer = false;
+            isInvestigating = false;
+            returningHome = false;
+
+            if (flashlight != null) flashlight.enabled = false;
+            if (guardRenderer != null) guardRenderer.material.color = baseBodyColor;
+
+            transform.position = new Vector3(transform.position.x, 0.5f, transform.position.z);
+            transform.rotation = Quaternion.Euler(90f, transform.eulerAngles.y, 0f);
+
+            if (carriesVaultKeycard)
+            {
+                var door = FindFirstObjectByType<Door>();
+                if (door != null) door.Unlock();
+                toastMessage = "KEYCARD ACQUIRED — Server Vault Door Unlocked!";
+                toastTimer = 4.0f;
+            }
+            else
+            {
+                toastMessage = silent ? "Guard neutralized silently." : "Guard knocked out!";
+                toastTimer = 2.5f;
+            }
         }
 
         private void UpdateFlashlightColor()
@@ -309,29 +468,7 @@ namespace Analog.Core
         public void Interact(PlayerController p)
         {
             if (IsKnockedOut || hasSpottedPlayer) return;
-
-            IsKnockedOut = true;
-            isInvestigating = false;
-            returningHome = false;
-            hasSpottedPlayer = false;
-
-            if (flashlight != null) flashlight.enabled = false;
-
-            transform.position = new Vector3(transform.position.x, 0.5f, transform.position.z);
-            transform.rotation = Quaternion.Euler(90f, transform.eulerAngles.y, 0f);
-
-            if (carriesVaultKeycard)
-            {
-                var door = FindFirstObjectByType<Door>();
-                if (door != null) door.Unlock();
-                toastMessage = "KEYCARD ACQUIRED — Server Vault Door Unlocked!";
-                toastTimer = 4.0f;
-            }
-            else
-            {
-                toastMessage = "Guard neutralized silently.";
-                toastTimer = 2.5f;
-            }
+            KnockOut(true);
         }
 
         private void OnGUI()
@@ -374,6 +511,24 @@ namespace Analog.Core
 
                 GUI.Label(new Rect((Screen.width - 420) / 2f, 115, 420, 40), "? GUARD INVESTIGATING NOISE", invStyle);
             }
+        }
+
+        private static AudioClip BuildBatonClip()
+        {
+            int rate = 44100;
+            int len = rate / 7;
+            float[] samples = new float[len];
+            for (int i = 0; i < len; i++)
+            {
+                float t = (float)i / len;
+                float env = 1f - t;
+                float zap = Mathf.Sin(2f * Mathf.PI * 260f * (i / (float)rate)) * 0.5f;
+                float crack = Mathf.Sin(i * 91.7f) * 0.4f;
+                samples[i] = (zap + crack) * env * 0.7f;
+            }
+            var clip = AudioClip.Create("BatonStrike", len, 1, rate, false);
+            clip.SetData(samples, 0);
+            return clip;
         }
     }
 }

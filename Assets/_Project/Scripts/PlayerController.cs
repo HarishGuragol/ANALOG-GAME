@@ -26,6 +26,7 @@ namespace Analog.Core
         private Vector3 lastInput;
         private float frameYaw;
         private SimpleCameraFollow followCam;
+        private PlayerCombat combat;
 
         private float standingHeight = 2.0f;
         private float crouchingHeight = 1.0f;
@@ -60,6 +61,8 @@ namespace Analog.Core
 
             if (GetComponent<PickupThrow>() == null) gameObject.AddComponent<PickupThrow>();
             if (GetComponent<FootstepAudio>() == null) gameObject.AddComponent<FootstepAudio>();
+            combat = GetComponent<PlayerCombat>();
+            if (combat == null) combat = gameObject.AddComponent<PlayerCombat>();
         }
 
         // A capsule looks the same from every angle, so add a visor (front) and satchel (back)
@@ -95,7 +98,7 @@ namespace Analog.Core
 
         private void Update()
         {
-            if (IsHiding) return;
+            if (IsHiding || (combat != null && combat.IsDead)) return;
 
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
