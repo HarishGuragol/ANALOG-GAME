@@ -13,9 +13,6 @@ namespace Analog.Core
         [SerializeField] private float rotationSmoothTime = 0.1f;
         [SerializeField] private float gravity = -15.0f;
 
-        [Header("Visual Feedback")]
-        [SerializeField] private Transform visualModel; // Scales the capsule visibly
-
         [Header("References")]
         [SerializeField] private Transform cameraTransform;
 
@@ -29,23 +26,34 @@ namespace Analog.Core
         private Vector3 standingScale = Vector3.one;
         private Vector3 crouchingScale = new Vector3(1f, 0.5f, 1f);
 
-        public bool IsGrounded => controller.isGrounded;
+        public bool IsGrounded => controller != null && controller.isGrounded;
         public bool IsCrouching => isCrouching;
 
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
-            standingHeight = controller.height;
-            crouchingHeight = standingHeight * 0.5f;
+            if (controller != null)
+            {
+                standingHeight = controller.height;
+                crouchingHeight = standingHeight * 0.5f;
+            }
 
             if (cameraTransform == null && Camera.main != null)
             {
                 cameraTransform = Camera.main.transform;
             }
+
+            // Ensure Kael starts slightly above floor level so he never embeds in a wall/floor!
+            if (transform.position.y < 0.5f)
+            {
+                transform.position = new Vector3(transform.position.x, 1.0f, transform.position.z);
+            }
         }
 
         private void Update()
         {
+            if (controller == null) return;
+
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
 
@@ -55,16 +63,11 @@ namespace Analog.Core
 
         private void HandleCrouch(Keyboard keyboard)
         {
-            // Press C or Left Ctrl to TOGGLE crouch on and off!
             if (keyboard.cKey.wasPressedThisFrame || keyboard.leftCtrlKey.wasPressedThisFrame)
             {
                 isCrouching = !isCrouching;
-
-                // Adjust physical collider height
                 controller.height = isCrouching ? crouchingHeight : standingHeight;
                 controller.center = new Vector3(0, controller.height / 2f, 0);
-
-                // Adjust visible shape so you see Kael physically duck and stand back up!
                 transform.localScale = isCrouching ? crouchingScale : standingScale;
             }
         }
