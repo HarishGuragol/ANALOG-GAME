@@ -15,15 +15,6 @@ namespace Analog.Core
             EnforceLayout();
         }
 
-        private void Update()
-        {
-            // In editor mode (when not playing), continuously guarantee perfect alignment!
-            if (!Application.isPlaying)
-            {
-                EnforceLayout();
-            }
-        }
-
         public void EnforceLayout()
         {
             // 1. LevelBuilder (Center anchor)
@@ -35,7 +26,7 @@ namespace Analog.Core
                 lb.transform.localScale = Vector3.one;
             }
 
-            // 2. Door - Snapped flush into the middle partition doorway!
+            // 2. Door - Placed in the partition wall opening
             var door = GameObject.Find("Door");
             if (door != null)
             {
@@ -44,7 +35,7 @@ namespace Analog.Core
                 door.transform.localScale = new Vector3(2.0f, 2.8f, 0.15f);
             }
 
-            // 3. Breaker Box - Mounted flat on the right wall near the door
+            // 3. Breaker Box - Mounted flat on the wall near the door
             var breaker = GameObject.Find("BreakerBox");
             if (breaker != null)
             {
@@ -53,37 +44,41 @@ namespace Analog.Core
                 breaker.transform.localScale = new Vector3(0.6f, 0.8f, 0.25f);
             }
 
-            // 4. Terminal Desk - Placed deep inside the server archive room
+            // 4. Terminal Desk - Placed right in the center of the server archive room so it's easy to reach!
             var terminal = GameObject.Find("TerminalDesk");
             if (terminal != null)
             {
-                terminal.transform.position = new Vector3(-5.5f, 0.6f, 8.0f);
+                terminal.transform.position = new Vector3(0.5f, 0.6f, 10.0f);
                 terminal.transform.rotation = Quaternion.identity;
                 terminal.transform.localScale = new Vector3(1.6f, 1.1f, 0.9f);
             }
 
-            // 5. Patrol Guard - Between the server racks
+            // 5. Patrol Guard - Pacing between server racks
             var guard = GameObject.Find("Guard");
             if (guard != null)
             {
-                guard.transform.position = new Vector3(0.5f, 1.0f, 6.5f);
+                guard.transform.position = new Vector3(2.5f, 1.0f, 7.5f);
                 guard.transform.rotation = Quaternion.Euler(0, 180f, 0);
             }
 
-            // 6. Player Kael - In the front entrance lobby
-            var player = GameObject.Find("Player");
-            if (player != null)
-            {
-                player.transform.position = new Vector3(0.5f, 1.0f, -4.0f);
-                player.transform.rotation = Quaternion.identity;
-            }
-
-            // 7. Ground Floor - Sized to fill the room
+            // 6. Ground Floor - Sized to fill room
             var ground = GameObject.Find("Ground");
             if (ground != null)
             {
                 ground.transform.position = Vector3.zero;
                 ground.transform.localScale = new Vector3(2.5f, 1.0f, 3.0f);
+            }
+
+            // 7. Auto-link Camera to Player if missing
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                var tpc = cam.GetComponent<ThirdPersonCamera>();
+                var player = GameObject.Find("Player");
+                if (tpc != null && player != null)
+                {
+                    tpc.SetTarget(player.transform);
+                }
             }
         }
     }
