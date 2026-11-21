@@ -115,8 +115,12 @@ namespace Analog.Core
             var crate = Mat("crate", new Color(0.3f, 0.22f, 0.12f), 0.15f);
             var glass = Mat("glassbottle", new Color(0.15f, 0.35f, 0.2f), 0.9f);
 
-            // Reception desk (L shape) with monitors
-            Prop(PrimitiveType.Cube, "ReceptionDesk", new Vector3(-5.5f, 0.55f, -7.5f), new Vector3(4f, 1.1f, 0.8f), wood);
+            // Reception desk (L shape) with monitors + interactive inspection
+            var desk = Prop(PrimitiveType.Cube, "ReceptionDesk", new Vector3(-5.5f, 0.55f, -7.5f), new Vector3(4f, 1.1f, 0.8f), wood);
+            desk.AddComponent<InspectableObject>().Configure(
+                "Check Reception Log",
+                "RECEPTION NIGHT LOG // 23:40",
+                "CLERK NOTE: Patrol guard on Vault Duty is jittery tonight — keeps jumping at every rattle in the hallway.\n\nIf the main server door locks again, check the yellow breaker panel on the east partition wall.");
             Prop(PrimitiveType.Cube, "ReceptionReturn", new Vector3(-7.35f, 0.55f, -6.0f), new Vector3(0.8f, 1.1f, 3f), wood);
             Prop(PrimitiveType.Cube, "DeskTop", new Vector3(-5.5f, 1.12f, -7.5f), new Vector3(4.1f, 0.05f, 0.9f), darkMetal, false);
             Prop(PrimitiveType.Cube, "Monitor1", new Vector3(-6.2f, 1.45f, -7.45f), new Vector3(0.6f, 0.38f, 0.04f), screen, false);
@@ -125,22 +129,40 @@ namespace Analog.Core
             // Filing cabinets along the south wall
             for (int i = 0; i < 3; i++)
             {
-                Prop(PrimitiveType.Cube, "FilingCabinet" + i, new Vector3(-3f + i * 0.9f, 0.9f, -10.5f), new Vector3(0.8f, 1.8f, 0.5f), metal);
+                var cab = Prop(PrimitiveType.Cube, "FilingCabinet" + i, new Vector3(-3f + i * 0.9f, 0.9f, -10.5f), new Vector3(0.8f, 1.8f, 0.5f), metal);
+                if (i == 0)
+                {
+                    cab.AddComponent<InspectableObject>().Configure(
+                        "Search Citizen Archives",
+                        "ORACLE DRIFT WATCHLIST // DRAWER A",
+                        "FLAGGED SUBJECT: KAEL VARN (#992)\nSYNC VARIANCE: CRITICAL\nORDER: Purge Team dispatched for 06:00.\n\nNOTE IN MARGIN: Older records moved to Server Vault terminal.");
+                }
             }
 
-            // Waiting benches
+            // Waiting benches + readable memo on CoffeeTable
             Prop(PrimitiveType.Cube, "Bench1", new Vector3(5.5f, 0.25f, -8f), new Vector3(3f, 0.5f, 0.6f), fabric);
             Prop(PrimitiveType.Cube, "Bench2", new Vector3(5.5f, 0.25f, -5.5f), new Vector3(3f, 0.5f, 0.6f), fabric);
             Prop(PrimitiveType.Cube, "CoffeeTable", new Vector3(5.5f, 0.2f, -6.75f), new Vector3(1.2f, 0.4f, 0.6f), wood);
+            var memoMat = Mat("memo", new Color(0.92f, 0.88f, 0.78f), 0.1f);
+            var memo = Prop(PrimitiveType.Cube, "SecurityMemo", new Vector3(5.5f, 0.42f, -6.75f), new Vector3(0.32f, 0.03f, 0.42f), memoMat);
+            memo.AddComponent<InspectableObject>().Configure(
+                "Read Maintenance Memo",
+                "MAINTENANCE MEMO // MAGNETIC COIL FAILSAFE",
+                "Reminder to night staff:\nThe Server Vault magnetic lock defaults to OPEN whenever the wall Breaker Box is shut off. Do not leave the breaker unlocked during inspection.");
 
             // Support pillars
             Prop(PrimitiveType.Cube, "Pillar1", new Vector3(5f, wallHeight / 2f, -1.5f), new Vector3(0.7f, wallHeight, 0.7f), Mat("wall", Color.black));
             Prop(PrimitiveType.Cube, "Pillar2", new Vector3(5f, wallHeight / 2f, -9.8f), new Vector3(0.7f, wallHeight, 0.7f), Mat("wall", Color.black));
             Prop(PrimitiveType.Cube, "Pillar3", new Vector3(-4.5f, wallHeight / 2f, -2f), new Vector3(0.7f, wallHeight, 0.7f), Mat("wall", Color.black));
 
-            // Vending machine with glowing front
-            Prop(PrimitiveType.Cube, "VendingMachine", new Vector3(7.3f, 1.1f, -2f), new Vector3(0.9f, 2.2f, 1f), darkMetal);
+            // Vending machine with glowing front (dispenses throwable soda cans!)
+            var vend = Prop(PrimitiveType.Cube, "VendingMachine", new Vector3(7.3f, 1.1f, -2f), new Vector3(0.9f, 2.2f, 1f), darkMetal);
+            vend.AddComponent<InspectableObject>().Configure("Dispense Soda Can", "", "", true);
             Prop(PrimitiveType.Cube, "VendingFront", new Vector3(6.83f, 1.3f, -2f), new Vector3(0.04f, 1.3f, 0.75f), vendGlow, false);
+
+            // Hideable Storage Locker in Lobby
+            var lobbyLocker = Prop(PrimitiveType.Cube, "LobbyLocker", new Vector3(-7.3f, 1.15f, 0.8f), new Vector3(0.9f, 2.3f, 0.9f), metal);
+            lobbyLocker.AddComponent<HidingSpot>().Configure("Lobby Locker", new Vector3(1.1f, 0f, 0f));
 
             // Potted plant
             Prop(PrimitiveType.Cylinder, "PlantPot", new Vector3(7f, 0.3f, -10f), new Vector3(0.6f, 0.3f, 0.6f), pot);
@@ -151,6 +173,8 @@ namespace Analog.Core
             Prop(PrimitiveType.Cube, "Crate2", new Vector3(-5.2f, 0.3f, -0.8f), new Vector3(0.6f, 0.6f, 0.6f), crate, true, true, 4f);
             Prop(PrimitiveType.Cylinder, "Bottle1", new Vector3(-3.5f, 0.2f, -5.8f), new Vector3(0.14f, 0.2f, 0.14f), glass, true, true, 0.5f);
             Prop(PrimitiveType.Cylinder, "Bottle2", new Vector3(-3.2f, 0.2f, -5.4f), new Vector3(0.14f, 0.2f, 0.14f), glass, true, true, 0.5f);
+            Prop(PrimitiveType.Cylinder, "DoorBottle1", new Vector3(2.2f, 0.2f, 1.5f), new Vector3(0.14f, 0.2f, 0.14f), glass, true, true, 0.5f);
+            Prop(PrimitiveType.Cylinder, "DoorBottle2", new Vector3(-1.5f, 0.2f, 1.8f), new Vector3(0.14f, 0.2f, 0.14f), glass, true, true, 0.5f);
             Prop(PrimitiveType.Cylinder, "Bin", new Vector3(-7.2f, 0.3f, -9.5f), new Vector3(0.45f, 0.3f, 0.45f), metal, true, true, 3f);
 
             // Overhead pipes (decorative, no collision so the camera never snags)
@@ -201,6 +225,11 @@ namespace Analog.Core
 
             // Cover crate just inside the doorway (pushable)
             Prop(PrimitiveType.Cube, "CoverCrate", new Vector3(-0.5f, 0.45f, 4.7f), new Vector3(0.9f, 0.9f, 0.9f), crate, true, true, 8f);
+
+            // Hideable Storage Locker inside Server Room
+            var lockerMat = Mat("metal", Color.gray);
+            var serverLocker = Prop(PrimitiveType.Cube, "ServerLocker", new Vector3(7.2f, 1.15f, 5.2f), new Vector3(0.9f, 2.3f, 0.9f), lockerMat);
+            serverLocker.AddComponent<HidingSpot>().Configure("Server Room Locker", new Vector3(-1.1f, 0f, 0f));
 
             // Fire exit frame, hazard stripe and sign (the glowing green door appears after the alarm)
             Prop(PrimitiveType.Cube, "ExitDoorFrame", new Vector3(-6f, 1.35f, 10.65f), new Vector3(2.3f, 2.7f, 0.1f), exitFrame, false);
@@ -298,6 +327,12 @@ namespace Analog.Core
             {
                 var rb = go.AddComponent<Rigidbody>();
                 rb.mass = mass;
+
+                var pp = go.AddComponent<PhysicsProp>();
+                bool glass = name.Contains("Bottle");
+                bool isMetal = name == "Bin";
+                string displayName = glass ? "Glass Bottle" : (isMetal ? "Metal Bin" : "Crate");
+                pp.Configure(displayName, glass, isMetal);
             }
             return go;
         }

@@ -27,6 +27,8 @@ namespace Analog.Core
         private bool isTransmitting = false;
         private float timer = 0f;
 
+        public bool IsTransmitting => isTransmitting;
+
         private void Awake()
         {
             if (Instance == null) Instance = this;

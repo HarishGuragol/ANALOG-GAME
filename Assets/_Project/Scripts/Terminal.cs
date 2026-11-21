@@ -21,6 +21,7 @@ namespace Analog.Core
         [SerializeField] private Door targetDoorToUnlock;
 
         private bool isOpen = false;
+        public static bool IsAnyOpen { get; private set; }
 
         private void Update()
         {
@@ -30,6 +31,7 @@ namespace Analog.Core
             if (Keyboard.current.spaceKey.wasPressedThisFrame && MissionManager.Instance != null)
             {
                 isOpen = false;
+                IsAnyOpen = false;
                 MissionManager.Instance.TriggerPurge();
             }
         }
@@ -42,6 +44,7 @@ namespace Analog.Core
         public void Interact(PlayerController player)
         {
             isOpen = !isOpen;
+            IsAnyOpen = isOpen;
 
             if (isOpen && opensTargetDoorOnRead && targetDoorToUnlock != null)
             {

@@ -13,6 +13,7 @@ namespace Analog.Core
         [SerializeField] private float acceleration = 18f;
         [SerializeField] private float deceleration = 22f;
         [SerializeField] private float turnSpeed = 14f;
+        [SerializeField] private float jumpHeight = 1.15f;
         [SerializeField] private float gravity = -15.0f;
 
         [Header("References")]
@@ -33,6 +34,7 @@ namespace Analog.Core
 
         public bool IsGrounded => controller != null && controller.isGrounded;
         public bool IsCrouching => isCrouching;
+        public bool IsHiding { get; set; }
         public float CurrentSpeed => horizontalVelocity.magnitude;
         public Vector3 HorizontalVelocity => horizontalVelocity;
 
@@ -55,6 +57,9 @@ namespace Analog.Core
             }
 
             BuildFacingMarkers();
+
+            if (GetComponent<PickupThrow>() == null) gameObject.AddComponent<PickupThrow>();
+            if (GetComponent<FootstepAudio>() == null) gameObject.AddComponent<FootstepAudio>();
         }
 
         // A capsule looks the same from every angle, so add a visor (front) and satchel (back)
@@ -90,6 +95,8 @@ namespace Analog.Core
 
         private void Update()
         {
+            if (IsHiding) return;
+
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
 
@@ -162,6 +169,12 @@ namespace Analog.Core
             if (controller.isGrounded && verticalVelocity < 0f)
             {
                 verticalVelocity = -2f;
+
+                bool commsActive = RadioCommsManager.Instance != null && RadioCommsManager.Instance.IsTransmitting;
+                if (!isCrouching && !Terminal.IsAnyOpen && !commsActive && keyboard.spaceKey.wasPressedThisFrame)
+                {
+                    verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+                }
             }
             verticalVelocity += gravity * Time.deltaTime;
 
