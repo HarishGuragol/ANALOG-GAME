@@ -80,9 +80,9 @@ namespace Analog.Core
                 initialized = true;
             }
 
-            // Mouse look
+            // Mouse look (works when cursor is locked, or when dragging on a MacBook trackpad)
             mouseIdleTimer += dt;
-            if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
+            if (mouse != null && (Cursor.lockState == CursorLockMode.Locked || mouse.leftButton.isPressed || mouse.rightButton.isPressed))
             {
                 Vector2 delta = mouse.delta.ReadValue();
                 if (delta.sqrMagnitude > 0.25f) mouseIdleTimer = 0f;
