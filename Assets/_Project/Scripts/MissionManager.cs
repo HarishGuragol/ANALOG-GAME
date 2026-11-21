@@ -15,7 +15,7 @@ namespace Analog.Core
 
         private readonly List<Light> alarmLights = new List<Light>();
         private GameObject exitDoor;
-        private Vector3 exitPosition = new Vector3(-6f, 1.3f, 10.3f);
+        private Vector3 exitPosition = new Vector3(-6f, 1.3f, 19.3f);
         private Transform player;
         private AudioSource sirenSource;
 
@@ -59,9 +59,10 @@ namespace Analog.Core
         {
             Vector3[] spots =
             {
-                new Vector3(0f, 3.6f, -4f),
-                new Vector3(0f, 3.6f, 6f),
-                new Vector3(0f, 3.6f, 9f)
+                new Vector3(0f, 5.2f, -4f),
+                new Vector3(0f, 5.2f, 8f),
+                new Vector3(-6f, 5.2f, 16f),
+                new Vector3(6f, 5.2f, 14f)
             };
 
             foreach (var pos in spots)
@@ -71,8 +72,8 @@ namespace Analog.Core
                 var l = go.AddComponent<Light>();
                 l.type = LightType.Point;
                 l.color = Color.red;
-                l.range = 12f;
-                l.intensity = 25f;
+                l.range = 18f;
+                l.intensity = 28f;
                 alarmLights.Add(l);
             }
         }
