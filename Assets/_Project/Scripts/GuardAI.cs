@@ -2,18 +2,22 @@ using UnityEngine;
 
 namespace Analog.Core
 {
-    public class GuardAI : MonoBehaviour
+    public class GuardAI : MonoBehaviour, IInteractable
     {
         [Header("Vision Settings")]
         [SerializeField] private float viewDistance = 10.0f;
         [SerializeField] private float viewAngle = 75.0f;
 
-        [Header("Investigation Settings")]
+        [Header("Patrol & Investigation")]
+        [SerializeField] private float patrolSpeed = 1.9f;
         [SerializeField] private float investigateSpeed = 2.2f;
         [SerializeField] private float investigateDuration = 4.5f;
+        [SerializeField] private bool carriesVaultKeycard = false;
 
         [Header("Vision Cone Visual")]
         [SerializeField] private Light flashlight;
+
+        public bool IsKnockedOut { get; private set; }
 
         private Transform player;
         private PlayerController playerController;
@@ -21,10 +25,23 @@ namespace Analog.Core
 
         private Vector3 homePosition;
         private float homeYaw;
+        private Vector3[] patrolPoints;
+        private int patrolIndex = 0;
+        private float patrolWaitTimer = 0f;
+
         private bool isInvestigating = false;
         private bool returningHome = false;
         private Vector3 investigateTarget;
         private float investigateTimer = 0f;
+
+        private float toastTimer = 0f;
+        private string toastMessage = "";
+
+        public void ConfigureGuard(Vector3[] waypoints, bool hasKeycard)
+        {
+            patrolPoints = waypoints;
+            carriesVaultKeycard = hasKeycard;
+        }
 
         private void OnEnable()
         {
@@ -84,7 +101,7 @@ namespace Analog.Core
 
         private void HandleNoiseHeard(Vector3 noisePos, float radius)
         {
-            if (hasSpottedPlayer) return;
+            if (IsKnockedOut || hasSpottedPlayer) return;
             if (Vector3.Distance(transform.position, noisePos) <= radius)
             {
                 isInvestigating = true;
@@ -97,6 +114,9 @@ namespace Analog.Core
 
         private void Update()
         {
+            if (toastTimer > 0f) toastTimer -= Time.deltaTime;
+            if (IsKnockedOut) return;
+
             if (player == null)
             {
                 FindPlayer();
@@ -111,6 +131,10 @@ namespace Analog.Core
             {
                 UpdateReturnHome();
             }
+            else if (patrolPoints != null && patrolPoints.Length >= 2)
+            {
+                UpdatePatrol();
+            }
             else
             {
                 float swivelAngle = Mathf.PingPong(Time.time * 30f, 80f) - 40f;
@@ -118,6 +142,30 @@ namespace Analog.Core
             }
 
             CheckDetection();
+        }
+
+        private void UpdatePatrol()
+        {
+            Vector3 target = new Vector3(patrolPoints[patrolIndex].x, transform.position.y, patrolPoints[patrolIndex].z);
+            Vector3 toTarget = target - transform.position;
+            toTarget.y = 0f;
+
+            if (toTarget.magnitude > 0.3f)
+            {
+                Vector3 dir = toTarget.normalized;
+                Quaternion lookRot = Quaternion.LookRotation(dir, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * 5f);
+                transform.position += dir * patrolSpeed * Time.deltaTime;
+            }
+            else
+            {
+                patrolWaitTimer += Time.deltaTime;
+                if (patrolWaitTimer >= 2.0f)
+                {
+                    patrolWaitTimer = 0f;
+                    patrolIndex = (patrolIndex + 1) % patrolPoints.Length;
+                }
+            }
         }
 
         private void UpdateInvestigation()
@@ -132,7 +180,6 @@ namespace Analog.Core
                 Quaternion lookRot = Quaternion.LookRotation(dir, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, Time.deltaTime * 6f);
 
-                // Stop short if a wall blocks the path so the guard doesn't walk into walls
                 if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dir, 0.85f, ~0, QueryTriggerInteraction.Ignore))
                 {
                     transform.position += dir * investigateSpeed * Time.deltaTime;
@@ -144,7 +191,6 @@ namespace Analog.Core
             }
             else
             {
-                // Look around near the noise source
                 float scan = Mathf.Sin(Time.time * 2.5f) * 35f * Time.deltaTime;
                 transform.Rotate(0f, scan, 0f);
                 investigateTimer -= Time.deltaTime;
@@ -160,7 +206,8 @@ namespace Analog.Core
 
         private void UpdateReturnHome()
         {
-            Vector3 toHome = homePosition - transform.position;
+            Vector3 returnPos = (patrolPoints != null && patrolPoints.Length > 0) ? patrolPoints[patrolIndex] : homePosition;
+            Vector3 toHome = returnPos - transform.position;
             toHome.y = 0f;
             float dist = toHome.magnitude;
 
@@ -177,8 +224,11 @@ namespace Analog.Core
                 }
             }
 
-            transform.position = new Vector3(homePosition.x, transform.position.y, homePosition.z);
-            transform.rotation = Quaternion.Euler(0f, homeYaw, 0f);
+            transform.position = new Vector3(returnPos.x, transform.position.y, returnPos.z);
+            if (patrolPoints == null || patrolPoints.Length == 0)
+            {
+                transform.rotation = Quaternion.Euler(0f, homeYaw, 0f);
+            }
             returningHome = false;
             UpdateFlashlightColor();
         }
@@ -250,8 +300,56 @@ namespace Analog.Core
             }
         }
 
+        public string GetInteractionPrompt()
+        {
+            if (IsKnockedOut || hasSpottedPlayer) return "";
+            return carriesVaultKeycard ? "Silent Takedown (Take Keycard)" : "Silent Takedown";
+        }
+
+        public void Interact(PlayerController p)
+        {
+            if (IsKnockedOut || hasSpottedPlayer) return;
+
+            IsKnockedOut = true;
+            isInvestigating = false;
+            returningHome = false;
+            hasSpottedPlayer = false;
+
+            if (flashlight != null) flashlight.enabled = false;
+
+            transform.position = new Vector3(transform.position.x, 0.5f, transform.position.z);
+            transform.rotation = Quaternion.Euler(90f, transform.eulerAngles.y, 0f);
+
+            if (carriesVaultKeycard)
+            {
+                var door = FindFirstObjectByType<Door>();
+                if (door != null) door.Unlock();
+                toastMessage = "KEYCARD ACQUIRED — Server Vault Door Unlocked!";
+                toastTimer = 4.0f;
+            }
+            else
+            {
+                toastMessage = "Guard neutralized silently.";
+                toastTimer = 2.5f;
+            }
+        }
+
         private void OnGUI()
         {
+            if (toastTimer > 0f && !string.IsNullOrEmpty(toastMessage))
+            {
+                GUIStyle toastStyle = new GUIStyle
+                {
+                    fontSize = 20,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter
+                };
+                toastStyle.normal.textColor = new Color(1f, 0.78f, 0.2f);
+                GUI.Label(new Rect((Screen.width - 560f) / 2f, 195f, 560f, 36f), toastMessage, toastStyle);
+            }
+
+            if (IsKnockedOut) return;
+
             if (hasSpottedPlayer)
             {
                 GUIStyle alertStyle = new GUIStyle

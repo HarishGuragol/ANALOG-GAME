@@ -41,7 +41,7 @@ namespace Analog.Core
             if (Physics.Raycast(ray, out RaycastHit hit, reachDistance, interactableLayer))
             {
                 IInteractable interactable = hit.collider.GetComponentInParent<IInteractable>();
-                if (interactable != null)
+                if (interactable != null && !string.IsNullOrEmpty(interactable.GetInteractionPrompt()))
                 {
                     currentInteractable = interactable;
                     return;
@@ -53,7 +53,7 @@ namespace Analog.Core
             foreach (var col in hits)
             {
                 IInteractable interactable = col.GetComponentInParent<IInteractable>();
-                if (interactable != null)
+                if (interactable != null && !string.IsNullOrEmpty(interactable.GetInteractionPrompt()))
                 {
                     currentInteractable = interactable;
                     return;

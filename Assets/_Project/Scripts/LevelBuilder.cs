@@ -215,13 +215,27 @@ namespace Analog.Core
             Prop(PrimitiveType.Cylinder, "AlleyBottle", new Vector3(15.5f, 0.2f, -10.5f), new Vector3(0.14f, 0.2f, 0.14f), glass, true, true, 0.5f);
             Light(new Vector3(16.2f, 3.6f, -4.5f), new Color(1f, 0.68f, 0.22f), 11f, 10f, "AlleyDoorLight", true);
 
+            // Sidewalk distraction bottles + Outdoor Street Patrol Guard (carries Vault Keycard!)
+            Prop(PrimitiveType.Cylinder, "SidewalkBottle1", new Vector3(-2.5f, 0.25f, -16.8f), new Vector3(0.14f, 0.2f, 0.14f), glass, true, true, 0.5f);
+            Prop(PrimitiveType.Cylinder, "SidewalkBottle2", new Vector3(4.5f, 0.25f, -16.8f), new Vector3(0.14f, 0.2f, 0.14f), glass, true, true, 0.5f);
+
+            var enforcerMat = Mat("enforcer", new Color(0.08f, 0.09f, 0.11f), 0.35f, 0.3f);
+            var guardVisorMat = Mat("guardvisor", new Color(0.9f, 0.15f, 0.12f), 0.6f, 0f, 1.6f);
+            var streetGuard = Prop(PrimitiveType.Capsule, "StreetGuard", new Vector3(-7f, 1.0f, -15.5f), Vector3.one, enforcerMat);
+            ChildProp(streetGuard.transform, PrimitiveType.Cube, "EnforcerVisor", new Vector3(0f, 0.52f, 0.42f), new Vector3(0.55f, 0.14f, 0.18f), guardVisorMat, false);
+            var guardAI = streetGuard.AddComponent<GuardAI>();
+            guardAI.ConfigureGuard(
+                new Vector3[] { new Vector3(-7f, 1.0f, -15.5f), new Vector3(7f, 1.0f, -15.5f) },
+                hasKeycard: true
+            );
+
             // Distant brutalist skyline blocks framing the street so the world feels huge
             Prop(PrimitiveType.Cube, "SkylineBlock_W", new Vector3(-24f, 9f, -6f), new Vector3(8f, 18f, 38f), skylineMat);
             Prop(PrimitiveType.Cube, "SkylineBlock_E", new Vector3(24f, 10f, -6f), new Vector3(8f, 20f, 38f), skylineMat);
             Prop(PrimitiveType.Cube, "SkylineBlock_SW", new Vector3(-14f, 11f, -36f), new Vector3(14f, 22f, 8f), skylineMat);
             Prop(PrimitiveType.Cube, "SkylineBlock_SE", new Vector3(12f, 13f, -36f), new Vector3(16f, 26f, 8f), skylineMat);
-            Prop(PrimitiveType.Cube, "StreetBarrierW", new Vector3(-20f, 0.6f, -22f), new Vector3(0.5f, 1.2f, 18f), trim);
-            Prop(PrimitiveType.Cube, "StreetBarrierE", new Vector3(20f, 0.6f, -22f), new Vector3(0.5f, 1.2f, 18f), trim);
+            Prop(PrimitiveType.Cube, "StreetBarrierW", new Vector3(-20f, 0.6f, -22f), new Vector3(0.5f, 1.2f, 18f), poleMat);
+            Prop(PrimitiveType.Cube, "StreetBarrierE", new Vector3(20f, 0.6f, -22f), new Vector3(0.5f, 1.2f, 18f), poleMat);
         }
 
         private void BuildCyberCar(string name, Vector3 pos, float yaw, Material bodyMat, Material headMat, Material tailMat)
