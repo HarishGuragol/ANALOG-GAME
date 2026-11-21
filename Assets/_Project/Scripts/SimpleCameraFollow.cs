@@ -4,8 +4,8 @@ using UnityEngine.InputSystem;
 namespace Analog.Core
 {
     // Third-person chase camera.
-    //  - A / D steer: the camera (and Kael) turn left / right
-    //  - Mouse also orbits and tilts the view
+    //  - Mouse orbits and tilts the view
+    //  - When Kael runs sideways or away, the camera swings round behind him
     //  - Walls never get between the camera and Kael
     public class SimpleCameraFollow : MonoBehaviour
     {
@@ -18,14 +18,19 @@ namespace Analog.Core
 
         [Header("Turning")]
         [SerializeField] private float mouseSensitivity = 0.15f;
-        [SerializeField] private float steerSpeed = 110f;   // degrees per second for A / D
+        [SerializeField] private float autoFollowSpeed = 2.2f;
         [SerializeField] private float collisionRadius = 0.25f;
 
         private float yaw = 0f;
         private float pitch = 15f;
+        private float mouseIdleTimer = 1f;
         private bool initialized = false;
+        private PlayerController playerController;
 
+        // Camera heading shown on screen
         public float Yaw => yaw;
+        // How much the mouse alone turned the camera this frame (the player uses this to steer)
+        public float MouseYawDelta { get; private set; }
 
         private void Start()
         {
@@ -40,6 +45,10 @@ namespace Analog.Core
                 var p = GameObject.Find("Player");
                 if (p != null) target = p.transform;
             }
+            if (target != null && playerController == null)
+            {
+                playerController = target.GetComponent<PlayerController>();
+            }
         }
 
         private static void LockCursor(bool locked)
@@ -50,7 +59,7 @@ namespace Analog.Core
 
         private void LateUpdate()
         {
-            if (target == null)
+            if (target == null || playerController == null)
             {
                 FindTarget();
                 if (target == null) return;
@@ -59,6 +68,7 @@ namespace Analog.Core
             float dt = Time.deltaTime;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
+            MouseYawDelta = 0f;
 
             // Esc frees the mouse, clicking the game locks it again
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) LockCursor(false);
@@ -70,22 +80,33 @@ namespace Analog.Core
                 initialized = true;
             }
 
-            // A / D steer the view
-            if (keyboard != null)
-            {
-                float steer = 0f;
-                if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) steer += 1f;
-                if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) steer -= 1f;
-                yaw += steer * steerSpeed * dt;
-            }
-
             // Mouse look
+            mouseIdleTimer += dt;
             if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
             {
                 Vector2 delta = mouse.delta.ReadValue();
-                yaw += delta.x * mouseSensitivity;
+                if (delta.sqrMagnitude > 0.25f) mouseIdleTimer = 0f;
+
+                MouseYawDelta = delta.x * mouseSensitivity;
+                yaw += MouseYawDelta;
                 pitch -= delta.y * mouseSensitivity;
                 pitch = Mathf.Clamp(pitch, -15f, 60f);
+            }
+
+            // Auto follow: swing round behind Kael when he runs sideways or away.
+            // (Skipped when he walks back toward the camera, so it never flips around.)
+            if (playerController != null && mouseIdleTimer > 0.3f)
+            {
+                Vector3 vel = playerController.HorizontalVelocity;
+                if (vel.magnitude > 0.8f)
+                {
+                    Vector3 camForward = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+                    if (Vector3.Dot(vel.normalized, camForward) > -0.3f)
+                    {
+                        float heading = Mathf.Atan2(vel.x, vel.z) * Mathf.Rad2Deg;
+                        yaw = Mathf.LerpAngle(yaw, heading, autoFollowSpeed * dt);
+                    }
+                }
             }
 
             // Position behind Kael's shoulder

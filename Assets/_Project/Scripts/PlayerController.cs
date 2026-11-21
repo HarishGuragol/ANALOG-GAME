@@ -22,6 +22,9 @@ namespace Analog.Core
         private Vector3 horizontalVelocity;
         private float verticalVelocity;
         private bool isCrouching = false;
+        private Vector3 lastInput;
+        private float frameYaw;
+        private SimpleCameraFollow followCam;
 
         private float standingHeight = 2.0f;
         private float crouchingHeight = 1.0f;
@@ -31,6 +34,7 @@ namespace Analog.Core
         public bool IsGrounded => controller != null && controller.isGrounded;
         public bool IsCrouching => isCrouching;
         public float CurrentSpeed => horizontalVelocity.magnitude;
+        public Vector3 HorizontalVelocity => horizontalVelocity;
 
         private void Awake()
         {
@@ -123,21 +127,31 @@ namespace Analog.Core
             if (isCrouching) targetSpeed = crouchSpeed;
             else if (keyboard.leftShiftKey.isPressed) targetSpeed = sprintSpeed;
 
-            // W / S walk along the camera's forward direction.
-            // A / D steer the camera (see SimpleCameraFollow), and Kael turns with it.
-            float cameraYaw = cameraTransform != null ? cameraTransform.eulerAngles.y : 0f;
-            Vector3 desiredVelocity = Vector3.zero;
+            if (followCam == null && cameraTransform != null) followCam = cameraTransform.GetComponent<SimpleCameraFollow>();
+            float displayYaw = followCam != null
+                ? followCam.Yaw
+                : (cameraTransform != null ? cameraTransform.eulerAngles.y : 0f);
 
-            if (Mathf.Abs(vertical) > 0.1f)
+            // The direction frame stays locked while the same keys are held, so Kael walks a
+            // straight line even while the camera swings round behind him. It re-syncs to the
+            // camera whenever the keys change, and the mouse can still steer him mid-walk.
+            if ((input - lastInput).sqrMagnitude > 0.001f)
             {
-                Vector3 moveDir = Quaternion.Euler(0f, cameraYaw, 0f) * new Vector3(0f, 0f, Mathf.Sign(vertical));
-                desiredVelocity = moveDir * targetSpeed;
+                frameYaw = displayYaw;
+                lastInput = input;
             }
+            if (followCam != null) frameYaw += followCam.MouseYawDelta;
+            else frameYaw = displayYaw;
 
-            // Kael always turns to face where the camera is pointing while a movement key is held
+            Vector3 desiredVelocity = Vector3.zero;
             if (input.sqrMagnitude > 0.01f)
             {
-                Quaternion lookRot = Quaternion.Euler(0f, cameraYaw, 0f);
+                // Full 8-way free movement
+                Vector3 moveDir = Quaternion.Euler(0f, frameYaw, 0f) * input;
+                desiredVelocity = moveDir * targetSpeed;
+
+                // Kael turns to face where he is going
+                Quaternion lookRot = Quaternion.LookRotation(moveDir, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, 1f - Mathf.Exp(-turnSpeed * Time.deltaTime));
             }
 
