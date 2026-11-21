@@ -5,6 +5,7 @@ namespace Analog.Core
     public class SimpleRainSystem : MonoBehaviour
     {
         [Header("Rain Settings")]
+        [SerializeField] private bool enableRain = false;
         [SerializeField] private int maxParticles = 2000;
         [SerializeField] private float rainAreaSize = 25.0f;
         [SerializeField] private float rainHeight = 10.0f;
@@ -15,6 +16,10 @@ namespace Analog.Core
 
         private void Start()
         {
+            var existing = GameObject.Find("RainEmitter");
+            if (existing != null) Destroy(existing);
+
+            if (!enableRain) return;
             SetupRain();
         }
 

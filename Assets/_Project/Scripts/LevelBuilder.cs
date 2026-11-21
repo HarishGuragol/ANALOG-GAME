@@ -71,6 +71,9 @@ namespace Analog.Core
             Prop(PrimitiveType.Cube, "WestWall", new Vector3(-roomWidth / 2f, h / 2f, 0), new Vector3(wallThickness, h, roomLength), wall);
             Prop(PrimitiveType.Cube, "EastWall", new Vector3(roomWidth / 2f, h / 2f, 0), new Vector3(wallThickness, h, roomLength), wall);
 
+            var ceiling = Mat("ceiling", new Color(0.09f, 0.1f, 0.12f), 0.1f);
+            Prop(PrimitiveType.Cube, "Ceiling", new Vector3(0, h + 0.1f, 0), new Vector3(roomWidth, 0.2f, roomLength), ceiling, false);
+
             float edge = roomWidth / 2f;
             float leftEnd = DoorLeftX;
             float rightStart = DoorLeftX + DoorWidth;
